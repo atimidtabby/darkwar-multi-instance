@@ -1,0 +1,21 @@
+DarkWar 多开：程序资源与账号数据
+
+管理器通过“选择游戏程序”选择本机安装目录中的 Game\DarkWar.exe。每个实例的 DarkWarSlotN_Data 是指向该安装目录 DarkWar_Data 的目录链接，因此 StreamingAssets\AssetBundles 等已有游戏资源由实例复用，不需要为每个实例复制一整份。GameAssembly.dll 等程序文件也通过管理器的 shared 目录复用。
+
+本机核对（2026-11-08）：安装目录的 StreamingAssets\AssetBundles 包含 4606 个文件，约 4.1 GiB；实例 2 通过其目录链接可访问同一批资源。这不保证游戏登录后或后续版本不会另外下载用户目录中的文件。
+
+每个实例由独立的非管理员 Windows 本机用户启动，使用其独立 Windows 用户配置文件。游戏数据位置由管理器在首次启动后显示，默认在：
+C:\Users\<实例 Windows 用户>\AppData\LocalLow\READYGO\DarkWar
+
+本机实例 2 的位置为：
+C:\Users\DWSlot2\AppData\LocalLow\READYGO\DarkWar
+
+账号标识、登录状态及部分角色设置可能保存在该 Windows 用户自己的注册表 HKCU\Software\READYGO\DarkWar 和用户目录中。角色的服务器端数据并不能由本地文件目录完整代表，不要把原账号的整套用户目录或注册表复制给其他实例。
+
+本机主账号用户目录的 config.db 包含聊天、邮件和用户信息相关表，LocalChatImg 是聊天图片，LocalImages 包含 JPG 图像缓存；这些内容可能与用户或其活动有关，默认保留隔离，不共享。
+
+本机两个用户目录中的 AssetBundles 当时为空。未来若发现游戏仍重复下载，应先记录下载提示和实例运行后的实际写入目录，再确认内容及并发访问方式，不能仅凭目录名把其他用户数据合并。
+
+目录链接指向同一份安装目录，并不是只读副本；多个实例同时更新同一文件可能发生冲突。游戏更新时，应先关闭所有实例，再通过官方启动器完成更新。
+
+游戏版本、客户端输入处理和账号服务策略可能变化。程序复用已有文件并不能保证禁止一切网络下载，也不保证任意数量的账号可以同时在线。
