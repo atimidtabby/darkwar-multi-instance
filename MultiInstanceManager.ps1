@@ -179,17 +179,19 @@ function Show-DarkWarDeleteConfirmation($items){
  $cancel=[Windows.Forms.Button]::new();$cancel.Text='取消';$cancel.Location=[Drawing.Point]::new(635,435);$cancel.Size=[Drawing.Size]::new(90,30);$cancel.Anchor='Bottom,Right';$cancel.DialogResult='Cancel';$dialog.Controls.Add($cancel);$dialog.AcceptButton=$cancel;$dialog.CancelButton=$cancel
  try{return $dialog.ShowDialog($form) -eq [Windows.Forms.DialogResult]::OK}finally{$dialog.Dispose()}
 }
-$form=[Windows.Forms.Form]::new();$form.Text='DarkWar 多开管理器 v1.0.0';$form.StartPosition='CenterScreen';$form.Size=[Drawing.Size]::new(1050,530);$form.MinimumSize=[Drawing.Size]::new(850,400);$form.Font=[Drawing.Font]::new('Microsoft YaHei UI',9)
+$gamePathValid=$false;if($state.GameExe){try{$null=Resolve-DarkWarGamePath $state.GameExe;$gamePathValid=$true}catch{}}
+$form=[Windows.Forms.Form]::new();$form.Text='DarkWar 多开管理器 v1.0.0';$form.StartPosition='CenterScreen';$form.Size=[Drawing.Size]::new(700,355);$form.MinimumSize=[Drawing.Size]::new(660,335);$form.Font=[Drawing.Font]::new('Microsoft YaHei UI',9)
 $top=[Windows.Forms.FlowLayoutPanel]::new();$top.Dock='Top';$top.Height=75;$top.WrapContents=$true
-$chooseGame=[Windows.Forms.Button]::new();$chooseGame.Text='选择游戏程序';$chooseGame.AutoSize=$true;$top.Controls.Add($chooseGame)
-$gameLabel=[Windows.Forms.Label]::new();$gameLabel.Width=700;$gameLabel.Height=25;$gameLabel.AutoEllipsis=$true;$gameLabel.Text=if($state.GameExe){"游戏：$($state.GameExe)"}else{'请选择 Game 文件夹内的 DarkWar.exe'};$gameLabel.Margin=[Windows.Forms.Padding]::new(5,8,5,0);$top.Controls.Add($gameLabel);$top.SetFlowBreak($gameLabel,$true)
+$chooseGame=[Windows.Forms.Button]::new();$chooseGame.Text=if($gamePathValid){'已选择（更换）'}else{'选择游戏程序'};$chooseGame.AutoSize=$true;$top.Controls.Add($chooseGame)
+$gameLabel=[Windows.Forms.Label]::new();$gameLabel.Width=500;$gameLabel.Height=25;$gameLabel.AutoEllipsis=$true;$gameLabel.Text=if($gamePathValid){"游戏：$($state.GameExe)"}elseif($state.GameExe){"已保存的游戏路径无效，请重新选择：$($state.GameExe)"}else{'请选择 Game 文件夹内的 DarkWar.exe'};$gameLabel.Margin=[Windows.Forms.Padding]::new(5,8,5,0);$top.Controls.Add($gameLabel);$top.SetFlowBreak($gameLabel,$true)
+$resizePathLabel={ $width=[Math]::Max(80,$top.ClientSize.Width-$chooseGame.Width-20);if($gameLabel.Width -ne $width){$gameLabel.Width=$width} }.GetNewClosure();$top.Add_Resize($resizePathLabel);$chooseGame.Add_SizeChanged($resizePathLabel)
 $create=[Windows.Forms.Button]::new();$create.Text='新建隔离实例';$create.AutoSize=$true;$top.Controls.Add($create)
 $start=[Windows.Forms.Button]::new();$start.Text='启动选中实例';$start.AutoSize=$true;$top.Controls.Add($start)
 $open=[Windows.Forms.Button]::new();$open.Text='打开数据文件夹';$open.AutoSize=$true;$top.Controls.Add($open)
 $deleteButton=[Windows.Forms.Button]::new();$deleteButton.Text='删除实例';$deleteButton.AutoSize=$true;$top.Controls.Add($deleteButton)
 $refreshButton=[Windows.Forms.Button]::new();$refreshButton.Text='刷新';$refreshButton.AutoSize=$true;$top.Controls.Add($refreshButton)
 $view=[Windows.Forms.ListView]::new();$view.Dock='Fill';$view.View='Details';$view.FullRowSelect=$true;$view.MultiSelect=$true;$view.GridLines=$true;$view.HideSelection=$false
-foreach($column in @(@('实例',65),@('备注',145),@('Windows 账号',130),@('状态',90),@('游戏数据文件夹',510),@('程序文件夹',350))){[void]$view.Columns.Add([string]$column[0],[int]$column[1])}
+foreach($column in @(@('实例',55),@('备注',100),@('Windows 账号',110),@('状态',62),@('游戏数据文件夹',170),@('程序文件夹',170))){[void]$view.Columns.Add([string]$column[0],[int]$column[1])}
 $doubleBuffered=$view.GetType().GetProperty('DoubleBuffered',[Reflection.BindingFlags]'Instance,NonPublic');if($doubleBuffered){$doubleBuffered.SetValue($view,$true,$null)}
 $context=[Windows.Forms.ContextMenuStrip]::new();$editRemark=[Windows.Forms.ToolStripMenuItem]::new('编辑备注');$deleteMenu=[Windows.Forms.ToolStripMenuItem]::new('删除实例和数据');[void]$context.Items.Add($editRemark);[void]$context.Items.Add($deleteMenu);$view.ContextMenuStrip=$context
 $view.Add_MouseDown(({param($sender,$event) if($event.Button -eq [Windows.Forms.MouseButtons]::Right){$hit=$view.GetItemAt($event.X,$event.Y);if($hit){if(!$hit.Selected){$view.SelectedItems.Clear();$hit.Selected=$true};$hit.Focused=$true}else{$view.SelectedItems.Clear()}}}).GetNewClosure())
@@ -207,7 +209,7 @@ $refresh={
  }}finally{if(!$same){$view.EndUpdate()}}
 }.GetNewClosure()
 $chooseGame.Add_Click(({
- try{$answer=Show-DarkWarGameChooser $state.GameExe;if($answer.Accepted){$state.GameExe=$answer.Path;& $save;$gameLabel.Text="游戏：$($state.GameExe)"}}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message,'DarkWar 多开')|Out-Null}
+ try{$answer=Show-DarkWarGameChooser $state.GameExe;if($answer.Accepted){$state.GameExe=$answer.Path;& $save;$chooseGame.Text='已选择（更换）';$gameLabel.Text="游戏：$($state.GameExe)"}}catch{[Windows.Forms.MessageBox]::Show($_.Exception.Message,'DarkWar 多开')|Out-Null}
 }).GetNewClosure())
 $create.Add_Click(({
  $created=$null
@@ -260,8 +262,8 @@ if($TestMode){$timer.Stop();return @{Form=$form;State=$state;View=$view;Refresh=
 # SIG # Begin signature block
 # MIIHSAYJKoZIhvcNAQcCoIIHOTCCBzUCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDk1W/QECirtyac
-# gnldN7C93yTFsYeEQNWE5xi9uwtXY6CCBCwwggQoMIICkKADAgECAhAR46BICY+q
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBjE9UnTm+9CuzH
+# zYximzdWiwScUlbrUT+iWSSfDf8HOqCCBCwwggQoMIICkKADAgECAhAR46BICY+q
 # vUJquCi14ZHrMA0GCSqGSIb3DQEBCwUAMCwxKjAoBgNVBAMMIURhcmtXYXIgTXVs
 # dGktSW5zdGFuY2UgTG9jYWwgVGVzdDAeFw0yNjExMDgxNTIwNTVaFw0yODExMDgx
 # NTMwNTRaMCwxKjAoBgNVBAMMIURhcmtXYXIgTXVsdGktSW5zdGFuY2UgTG9jYWwg
@@ -287,14 +289,14 @@ if($TestMode){$timer.Stop();return @{Form=$form;State=$state;View=$view;Refresh=
 # ATBAMCwxKjAoBgNVBAMMIURhcmtXYXIgTXVsdGktSW5zdGFuY2UgTG9jYWwgVGVz
 # dAIQEeOgSAmPqr1CargoteGR6zANBglghkgBZQMEAgEFAKCBhDAYBgorBgEEAYI3
 # AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisG
-# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCDaXdrzJ6zB
-# tDpz9AYBePb0A0Lhfbk+/YGE4kZHLBU0UjANBgkqhkiG9w0BAQEFAASCAYAVU7dL
-# SAcy4Vgo8PPHB0trFQrCVmzh4BEly08cP9g2jxryphQYwkCtHi4QCuhoqplcBvRi
-# pOXtyFW67otC1/UkI9IQVK31Pre4XzQJPRcz8VYAwIVgGgEu8tKhAqeuX/zuLkAm
-# fZP3YY3E1isQHjbhDsXnCUEJZ9tosWB1v8I83hcr4K+0A6lTHsarmzgRK67zQWD0
-# AsNKQlmeGHcJtiUmQ+Ldd5bqNuz2iEaqthBfDloekjpkPqg9oRYJzhJK4kNOIE9l
-# ThHSqLvvJV7iqWLdv8pt1ne6jmBpVwgUAaheOjXn9IV/4BFIFA8Ep2ErTOSWSrd+
-# 8AviS99DSN39R+KIVfHiIhtLiK1tFetlLF6kRvt5cF3DWLdGAIgDBm8BZ5SW4G5s
-# sYZrrkAR6LNByLaWB9zh88/OQz2l9rTAtjJFx35cfg++9cglrWjWUydgdR4VSvpb
-# zR+gv2ija4au2n6+W83MZqjnwypTNdxt1iHLZTzLmlmWCuL5ZFWd4F1E2+Q=
+# AQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCD4Lo4gcGt6
+# JY7Uh1FzyzForzt5rgu3IcUuQuz3s64OfDANBgkqhkiG9w0BAQEFAASCAYBeMp5H
+# XSnCD5BgDdfI7StalWqZ80qZFgUj8VRvFacq9v04lqQmA8cgBFuhjulXiyPfEuRE
+# E+oioWSkOQClA680xSxokYEsNxjA45cAU0U8vACPxfuKTqiju9eqcHM5gTAkmCw2
+# RfzFClshKKIj6OjKJolPkWOB45R4LBMiztm92TecsF4ZRgEDBi0WAM3bJ+8Wl3Vp
+# xUVynFrkDU0XSm+hlytsLJ6UfhhEP3vxr9WW6d8eckBqxNAkuaBJt4Egu6x2lOzn
+# umIxddsCNnM/KfI6zLETqKZpPoEbOp2Nr7G6ldaQ8wBrlMSBwJTQI6TJJBzkX6DS
+# yKthCkPrEyO8E0cNWrEmVkDOyzOdb05kDNbj/uP6AIY7lIv86cYMSJRGwryYyxfJ
+# /WGmhCsKvuXqns8RQTZfN09b+qKhaumYmyBguUOL2wKIH5Oe1LkOKoKK1J+6DAQE
+# f2pob9fPnFTvHi9TJ2A6/YghcPssThRYa79cKFZQNGOODYiFubQcCev2+JM=
 # SIG # End signature block
